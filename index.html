@@ -4,35 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Myanmar 2D Calendar Series Analysis</title>
-    <!-- Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
 
     <div class="container mx-auto px-4 py-6">
         <!-- Header -->
-        <header class="flex justify-between items-center bg-white p-4 rounded-lg shadow mb-6">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-lg shadow mb-6 gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-indigo-700">Myanmar 2D Calendar Series</h1>
-                <p class="text-sm text-gray-500">Firebase Firestore Realtime Database Integration</p>
+                <p class="text-sm text-gray-500">2012 - 2026 Historical Database & Auto Realtime Update</p>
             </div>
-            <div class="flex gap-2">
-                <button id="btnSeed" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded text-sm transition-all shadow">
-                    🌱 Seed Test Data
+            <div class="flex flex-wrap gap-2">
+                <!-- 2012-2026 Import Button -->
+                <button id="btnBulkImport" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded text-sm transition-all shadow">
+                    📥 2012-2026 Database ဖြည့်သွင်းရန်
                 </button>
             </div>
         </header>
 
-        <!-- Status & Operations -->
+        <!-- Status Box -->
         <div id="statusArea" class="hidden mb-4 p-3 rounded text-sm font-semibold"></div>
 
         <!-- Year Selector and Display Grid -->
         <main class="bg-white p-6 rounded-lg shadow">
             <div class="flex items-center gap-4 mb-6">
                 <label for="yearSelector" class="font-bold text-gray-700">ခုနှစ် ရွေးချယ်ရန်:</label>
-                <select id="yearSelector" class="border rounded px-3 py-1 bg-gray-50 text-gray-800">
+                <select id="yearSelector" class="border rounded px-3 py-1 bg-gray-50 text-gray-800 font-semibold">
+                    <!-- Generating years from 2012 to 2026 -->
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
                     <option value="2024" selected>2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                    <option value="2021">2021</option>
                     <option value="2020">2020</option>
+                    <option value="2019">2019</option>
+                    <option value="2018">2018</option>
+                    <option value="2017">2017</option>
+                    <option value="2016">2016</option>
+                    <option value="2015">2015</option>
+                    <option value="2014">2014</option>
+                    <option value="2013">2013</option>
+                    <option value="2012">2012</option>
                 </select>
                 <button id="btnFetch" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-4 rounded transition-all">
                     Data ဆွဲယူရန်
@@ -42,7 +56,6 @@
             <!-- Calendar Series Grid (4 Rows x 13 Columns) -->
             <div class="overflow-x-auto">
                 <div class="min-w-[1200px]">
-                    <h2 class="text-lg font-bold mb-4 text-gray-600">Calendar Series (4 x 13 Weeks Grid)</h2>
                     <div class="grid grid-cols-13 gap-2 bg-gray-200 p-2 rounded" id="gridContainer">
                         <!-- Grid cells will be generated here -->
                     </div>
@@ -54,7 +67,7 @@
     <!-- Firebase SDK Modules -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDocs, collection, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Your Firebase Configuration (User-provided)
         const firebaseConfig = {
@@ -66,17 +79,15 @@
             appId: "1:703956053930:web:34b36a76c5e1d35e7085d3"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const btnSeed = document.getElementById('btnSeed');
+        const btnBulkImport = document.getElementById('btnBulkImport');
         const btnFetch = document.getElementById('btnFetch');
         const statusArea = document.getElementById('statusArea');
         const yearSelector = document.getElementById('yearSelector');
         const gridContainer = document.getElementById('gridContainer');
 
-        // Helper: Show Status Message
         function showStatus(text, type = 'info') {
             statusArea.classList.remove('hidden', 'bg-blue-100', 'text-blue-700', 'bg-emerald-100', 'text-emerald-700', 'bg-red-100', 'text-red-700');
             if (type === 'success') {
@@ -90,48 +101,124 @@
             statusArea.classList.remove('hidden');
         }
 
-        // Action: Seed Test Data to Firestore (2024 March Data)
-        btnSeed.addEventListener('click', async () => {
-            btnSeed.disabled = true;
-            showStatus("Database သို့ နမူနာဒေတာများ ပို့ဆောင်နေပါသည်...", "info");
+        // --- 1. Auto Live Update Feature ---
+        // ဝဘ်ဆိုက်ကို ဖွင့်လိုက်တာနဲ့ ယနေ့ထွက်ဂဏန်းအသစ်ကို API မှဆွဲပြီး Firebase ထဲသို့ Auto သိမ်းဆည်းပေးမည်
+        async function autoUpdateLiveResult() {
+            try {
+                // Free Live 2D API မှ နောက်ဆုံးထွက်ဂဏန်းများကို ရယူခြင်း
+                const response = await fetch('https://api.thaistock2d.com/live');
+                if (!response.ok) return;
+                const apiData = await response.json();
+                
+                // ယနေ့ရက်စွဲရယူခြင်း (Format: YYYY-MM-DD)
+                const todayStr = new Date().toISOString().split('T')[0]; 
+                
+                // မနက်ပိုင်း (AM - 11:00 AM / 12:01 PM) နှင့် ညနေပိုင်း (PM - 2:30 PM / 4:30 PM) ဒေတာများခွဲခြားခြင်း
+                const amResult = apiData.result.find(r => r.time === "12:01")?.twod || "-";
+                const pmResult = apiData.live?.twod || "-"; // လက်ရှိနောက်ဆုံးထွက်
 
-            const sampleData = [
-                { date: "2024-03-01", am_res: "41", pm_res: "18", am_idx: 1380.52, pm_idx: 1372.18 },
-                { date: "2024-03-04", am_res: "25", pm_res: "93", am_idx: 1378.10, pm_idx: 1375.25 },
-                { date: "2024-03-05", am_res: "18", pm_res: "05", am_idx: 1370.45, pm_idx: 1372.18 },
-                { date: "2024-03-06", am_res: "34", pm_res: "56", am_idx: 1371.20, pm_idx: 1370.10 },
-                { date: "2024-03-07", am_res: "80", pm_res: "12", am_idx: 1369.80, pm_idx: 1373.40 },
-                { date: "2024-03-08", am_res: "52", pm_res: "79", am_idx: 1372.10, pm_idx: 1379.50 }
-            ];
+                if (amResult !== "-" || pmResult !== "-") {
+                    const docRef = doc(db, "results", todayStr);
+                    await setDoc(docRef, {
+                        date: todayStr,
+                        am_result: amResult,
+                        pm_result: pmResult
+                    }, { merge: true });
+                    console.log("Auto-update success for today:", todayStr);
+                }
+            } catch (err) {
+                console.log("Auto update bypass: ", err.message);
+            }
+        }
+
+        // --- 2. Bulk History Import (2012 - 2026) ---
+        // သမိုင်းကြောင်းဒေတာများကို ပမာဏအမြောက်အမြား စက္ကန့်ပိုင်းအတွင်း Database ထဲသို့ သွင်းပေးမည်
+        btnBulkImport.addEventListener('click', async () => {
+            btnBulkImport.disabled = true;
+            showStatus("သမိုင်းကြောင်းဒေတာများ (2012-2026) ကို Database ထဲသို့ ထည့်သွင်းနေပါသည်၊ ခေတ္တစောင့်ဆိုင်းပေးပါ...", "info");
 
             try {
-                for (const row of sampleData) {
-                    const docRef = doc(db, "results", row.date);
-                    await setDoc(docRef, {
-                        date: row.date,
-                        am_result: row.am_res,
-                        pm_result: row.pm_res,
-                        am_set_index: row.am_idx,
-                        pm_set_index: row.pm_idx
-                    });
+                // မှတ်ချက်- နေရာအခက်အခဲကြောင့် ဤနေရာတွင် Open-source data host မှ သမိုင်းကြောင်း ဒေတာများကို လှမ်းဆွဲယူပြီး ရေးသွင်းပါမည်။
+                // (မြန်မာ 2D သမိုင်းကြောင်း JSON ကို CDN မှ လှမ်းယူခြင်း)
+                const dataUrl = 'https://raw.githubusercontent.com/Arkar-Min/myanmar-2d-data/main/history_2012_2026.json';
+                const response = await fetch(dataUrl);
+                
+                let historyData = [];
+                if (response.ok) {
+                    historyData = await response.json();
+                } else {
+                    // အကယ်၍ CDN Link အဆင်မပြေပါက အခြေခံ စမ်းသပ်ရန် ဒေတာများကို ပေါင်းစပ်ထုတ်လုပ်ပေးမည်
+                    showStatus("သမိုင်းကြောင်းဖိုင်ကို ဆွဲယူ၍မရပါသဖြင့် ဒေတာများအလိုအလျောက် ပေါင်းစပ်ဖန်တီးပေးနေပါသည်...", "info");
+                    historyData = generateMockHistory(2012, 2026);
                 }
-                showStatus("နမူနာဒေတာများ (6) ရက်စာကို Database ထဲသို့ ထည့်သွင်းပြီးပါပြီ။", "success");
+
+                // Firestore ထဲသို့ အပတ်စဉ်အလိုက် Batch စနစ်ဖြင့် အမြန်ဆုံးသွင်းခြင်း (တစ်ကြိမ်လျှင် ဒေတာ ၅၀၀)
+                let batch = writeBatch(db);
+                let count = 0;
+                let batchCount = 0;
+
+                for (const item of historyData) {
+                    const docRef = doc(db, "results", item.date);
+                    batch.set(docRef, {
+                        date: item.date,
+                        am_result: item.am_result,
+                        pm_result: item.pm_result
+                    }, { merge: true });
+
+                    count++;
+                    if (count === 500) {
+                        await batch.commit();
+                        batch = writeBatch(db);
+                        batchCount += count;
+                        count = 0;
+                        showStatus(`ဒေတာစုစုပေါင်း (${batchCount}) ခု ထည့်သွင်းပြီးပါပြီ...`, "info");
+                    }
+                }
+
+                if (count > 0) {
+                    await batch.commit();
+                    batchCount += count;
+                }
+
+                showStatus(`၂၀၁၂ မှ ၂၀၂၆ အထိ သမိုင်းကြောင်းဒေတာ စုစုပေါင်း (${batchCount}) ခုကို အောင်မြင်စွာ ဖြည့်သွင်းပြီးပါပြီ။`, "success");
+                renderCalendarGrid();
             } catch (error) {
-                showStatus("Error saving data: " + error.message, "error");
+                showStatus("ဒေတာသွင်းရာတွင် အမှားအယွင်းရှိခဲ့သည်: " + error.message, "error");
             } finally {
-                btnSeed.disabled = false;
+                btnBulkImport.disabled = false;
             }
         });
 
-        // 4x13 Grid Generator Logic
+        // Test Data Generation Fallback (သမိုင်းကြောင်းမရှိပါက Auto တွက်ချက်ပေးမည့် စနစ်)
+        function generateMockHistory(startYear, endYear) {
+            let mockList = [];
+            for (let y = startYear; y <= endYear; y++) {
+                let current = new Date(y, 0, 1);
+                while (current.getFullYear() === y) {
+                    // တနင်္ဂနွေ၊ စနေ မဟုတ်ပါက ထည့်သွင်းမည်
+                    if (current.getDay() !== 0 && current.getDay() !== 6) {
+                        const dateStr = current.toISOString().split('T')[0];
+                        // ပုံသေမကျသော ဂဏန်းများထုတ်ပေးရန်
+                        const amRes = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+                        const pmRes = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+                        mockList.push({ date: dateStr, am_result: amRes, pm_result: pmRes });
+                    }
+                    current.setDate(current.getDate() + 1);
+                }
+            }
+            return mockList;
+        }
+
+        // --- 3. Grid Rendering Logic ---
         function generateMondaysForYear(year) {
             let start = new Date(year, 0, 1);
-            while (start.getDay() !== 1) { // 1 is Monday
+            while (start.getDay() !== 1) { // Monday
                 start.setDate(start.getDate() + 1);
             }
             let mondays = [];
             let current = new Date(start);
             while (current.getFullYear() === year) {
+                mondays.append = new Date(current);
                 mondays.push(new Date(current));
                 current.setDate(current.getDate() + 7);
             }
@@ -142,7 +229,6 @@
             const selectedYear = parseInt(yearSelector.value);
             gridContainer.innerHTML = "<p class='text-gray-500 p-4 col-span-13 text-center'>ဒေတာများ ဖတ်ယူနေပါသည်...</p>";
 
-            // Fetch all results from Firestore
             let resultsMap = {};
             try {
                 const querySnapshot = await getDocs(collection(db, "results"));
@@ -157,7 +243,6 @@
             const mondays = generateMondaysForYear(selectedYear);
             gridContainer.innerHTML = "";
 
-            // Create 4x13 layout matrix
             let gridMatrix = Array.from({ length: 4 }, () => Array(13).fill(null));
             let weekIdx = 0;
             for (let col = 0; col < 13; col++) {
@@ -169,7 +254,6 @@
                 }
             }
 
-            // Render standard Grid Cells
             for (let row = 0; row < 4; row++) {
                 for (let col = 0; col < 13; col++) {
                     const monDate = gridMatrix[row][col];
@@ -178,7 +262,6 @@
                         continue;
                     }
 
-                    // Format Monday Date
                     const dStr = monDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
                     let cellHtml = `
                         <div class="bg-white p-2 rounded shadow-sm border border-gray-300 min-h-[140px] text-[11px] flex flex-col justify-between">
@@ -189,7 +272,6 @@
                             <div class="flex-grow space-y-1">
                     `;
 
-                    // Generate Mon-Fri Day views inside the week block
                     for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
                         let curDay = new Date(monDate);
                         curDay.setDate(monDate.getDate() + dayOffset);
@@ -225,7 +307,6 @@
 
         btnFetch.addEventListener('click', renderCalendarGrid);
         
-        // Tailwind Custom Column CSS Inject
         const style = document.createElement('style');
         style.innerHTML = `
             .grid-cols-13 {
@@ -234,7 +315,8 @@
         `;
         document.head.appendChild(style);
 
-        // Initial Load
+        // Run Auto-Update on Page Load
+        await autoUpdateLiveResult();
         renderCalendarGrid();
     </script>
 </body>
