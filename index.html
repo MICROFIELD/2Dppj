@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Myanmar 2D Calendar Series Analysis</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen">
+
+    <div class="container mx-auto px-4 py-6">
+        <!-- Header -->
+        <header class="flex justify-between items-center bg-white p-4 rounded-lg shadow mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-indigo-700">Myanmar 2D Calendar Series</h1>
+                <p class="text-sm text-gray-500">Firebase Firestore Realtime Database Integration</p>
+            </div>
+            <div class="flex gap-2">
+                <button id="btnSeed" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded text-sm transition-all shadow">
+                    🌱 Seed Test Data
+                </button>
+            </div>
+        </header>
+
+        <!-- Status & Operations -->
+        <div id="statusArea" class="hidden mb-4 p-3 rounded text-sm font-semibold"></div>
+
+        <!-- Year Selector and Display Grid -->
+        <main class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center gap-4 mb-6">
+                <label for="yearSelector" class="font-bold text-gray-700">ခုနှစ် ရွေးချယ်ရန်:</label>
+                <select id="yearSelector" class="border rounded px-3 py-1 bg-gray-50 text-gray-800">
+                    <option value="2024" selected>2024</option>
+                    <option value="2020">2020</option>
+                </select>
+                <button id="btnFetch" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-4 rounded transition-all">
+                    Data ဆွဲယူရန်
+                </button>
+            </div>
+
+            <!-- Calendar Series Grid (4 Rows x 13 Columns) -->
+            <div class="overflow-x-auto">
+                <div class="min-w-[1200px]">
+                    <h2 class="text-lg font-bold mb-4 text-gray-600">Calendar Series (4 x 13 Weeks Grid)</h2>
+                    <div class="grid grid-cols-13 gap-2 bg-gray-200 p-2 rounded" id="gridContainer">
+                        <!-- Grid cells will be generated here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Firebase SDK Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Your Firebase Configuration (User-provided)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtm0vYIhTmmf27dMl3duObSz6PnZbSkrM",
+            authDomain: "dppj-d8440.firebaseapp.com",
+            projectId: "dppj-d8440",
+            storageBucket: "dppj-d8440.firebasestorage.app",
+            messagingSenderId: "703956053930",
+            appId: "1:703956053930:web:34b36a76c5e1d35e7085d3"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const btnSeed = document.getElementById('btnSeed');
+        const btnFetch = document.getElementById('btnFetch');
+        const statusArea = document.getElementById('statusArea');
+        const yearSelector = document.getElementById('yearSelector');
+        const gridContainer = document.getElementById('gridContainer');
+
+        // Helper: Show Status Message
+        function showStatus(text, type = 'info') {
+            statusArea.classList.remove('hidden', 'bg-blue-100', 'text-blue-700', 'bg-emerald-100', 'text-emerald-700', 'bg-red-100', 'text-red-700');
+            if (type === 'success') {
+                statusArea.classList.add('bg-emerald-100', 'text-emerald-700');
+            } else if (type === 'error') {
+                statusArea.classList.add('bg-red-100', 'text-red-700');
+            } else {
+                statusArea.classList.add('bg-blue-100', 'text-blue-700');
+            }
+            statusArea.innerText = text;
+            statusArea.classList.remove('hidden');
+        }
+
+        // Action: Seed Test Data to Firestore (2024 March Data)
+        btnSeed.addEventListener('click', async () => {
+            btnSeed.disabled = true;
+            showStatus("Database သို့ နမူနာဒေတာများ ပို့ဆောင်နေပါသည်...", "info");
+
+            const sampleData = [
+                { date: "2024-03-01", am_res: "41", pm_res: "18", am_idx: 1380.52, pm_idx: 1372.18 },
+                { date: "2024-03-04", am_res: "25", pm_res: "93", am_idx: 1378.10, pm_idx: 1375.25 },
+                { date: "2024-03-05", am_res: "18", pm_res: "05", am_idx: 1370.45, pm_idx: 1372.18 },
+                { date: "2024-03-06", am_res: "34", pm_res: "56", am_idx: 1371.20, pm_idx: 1370.10 },
+                { date: "2024-03-07", am_res: "80", pm_res: "12", am_idx: 1369.80, pm_idx: 1373.40 },
+                { date: "2024-03-08", am_res: "52", pm_res: "79", am_idx: 1372.10, pm_idx: 1379.50 }
+            ];
+
+            try {
+                for (const row of sampleData) {
+                    const docRef = doc(db, "results", row.date);
+                    await setDoc(docRef, {
+                        date: row.date,
+                        am_result: row.am_res,
+                        pm_result: row.pm_res,
+                        am_set_index: row.am_idx,
+                        pm_set_index: row.pm_idx
+                    });
+                }
+                showStatus("နမူနာဒေတာများ (6) ရက်စာကို Database ထဲသို့ ထည့်သွင်းပြီးပါပြီ။", "success");
+            } catch (error) {
+                showStatus("Error saving data: " + error.message, "error");
+            } finally {
+                btnSeed.disabled = false;
+            }
+        });
+
+        // 4x13 Grid Generator Logic
+        function generateMondaysForYear(year) {
+            let start = new Date(year, 0, 1);
+            while (start.getDay() !== 1) { // 1 is Monday
+                start.setDate(start.getDate() + 1);
+            }
+            let mondays = [];
+            let current = new Date(start);
+            while (current.getFullYear() === year) {
+                mondays.push(new Date(current));
+                current.setDate(current.getDate() + 7);
+            }
+            return mondays;
+        }
+
+        async function renderCalendarGrid() {
+            const selectedYear = parseInt(yearSelector.value);
+            gridContainer.innerHTML = "<p class='text-gray-500 p-4 col-span-13 text-center'>ဒေတာများ ဖတ်ယူနေပါသည်...</p>";
+
+            // Fetch all results from Firestore
+            let resultsMap = {};
+            try {
+                const querySnapshot = await getDocs(collection(db, "results"));
+                querySnapshot.forEach((doc) => {
+                    resultsMap[doc.id] = doc.data();
+                });
+            } catch (error) {
+                showStatus("ဒေတာဖတ်ယူရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်: " + error.message, "error");
+                return;
+            }
+
+            const mondays = generateMondaysForYear(selectedYear);
+            gridContainer.innerHTML = "";
+
+            // Create 4x13 layout matrix
+            let gridMatrix = Array.from({ length: 4 }, () => Array(13).fill(null));
+            let weekIdx = 0;
+            for (let col = 0; col < 13; col++) {
+                for (let row = 0; row < 4; row++) {
+                    if (weekIdx < mondays.length) {
+                        gridMatrix[row][col] = mondays[weekIdx];
+                        weekIdx++;
+                    }
+                }
+            }
+
+            // Render standard Grid Cells
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 13; col++) {
+                    const monDate = gridMatrix[row][col];
+                    if (!monDate) {
+                        gridContainer.innerHTML += `<div class="bg-gray-100 p-2 rounded border border-dashed border-gray-300 min-h-[140px]"></div>`;
+                        continue;
+                    }
+
+                    // Format Monday Date
+                    const dStr = monDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+                    let cellHtml = `
+                        <div class="bg-white p-2 rounded shadow-sm border border-gray-300 min-h-[140px] text-[11px] flex flex-col justify-between">
+                            <div class="font-bold text-gray-700 border-b pb-1 mb-1 bg-indigo-50 px-1 rounded flex justify-between">
+                                <span>W${row + 1}C${col + 1}</span>
+                                <span class="text-indigo-600">${dStr}</span>
+                            </div>
+                            <div class="flex-grow space-y-1">
+                    `;
+
+                    // Generate Mon-Fri Day views inside the week block
+                    for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
+                        let curDay = new Date(monDate);
+                        curDay.setDate(monDate.getDate() + dayOffset);
+                        const isoDate = curDay.toISOString().split('T')[0];
+                        const dayName = curDay.toLocaleDateString('en-US', { weekday: 'short' });
+
+                        const record = resultsMap[isoDate];
+                        const amVal = record ? record.am_result : "-";
+                        const pmVal = record ? record.pm_result : "-";
+
+                        let highlightClass = record ? "bg-amber-100 font-semibold text-gray-900" : "text-gray-400";
+
+                        cellHtml += `
+                            <div class="flex justify-between px-1 rounded ${highlightClass}">
+                                <span>${dayName}</span>
+                                <span class="space-x-1">
+                                    <span class="text-blue-600 font-mono">${amVal}</span>
+                                    <span class="text-red-600 font-mono">${pmVal}</span>
+                                </span>
+                            </div>
+                        `;
+                    }
+
+                    cellHtml += `
+                            </div>
+                        </div>
+                    `;
+                    gridContainer.innerHTML += cellHtml;
+                }
+            }
+            showStatus(`${selectedYear} ခုနှစ်အတွက် ပြက္ခဒိန် ဇယားကွက် ဖော်ပြပြီးပါပြီ။`, "success");
+        }
+
+        btnFetch.addEventListener('click', renderCalendarGrid);
+        
+        // Tailwind Custom Column CSS Inject
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .grid-cols-13 {
+                grid-template-columns: repeat(13, minmax(0, 1fr));
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initial Load
+        renderCalendarGrid();
+    </script>
+</body>
+</html>
